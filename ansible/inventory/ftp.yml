@@ -1,0 +1,71 @@
+---
+- hosts: all
+  tasks:
+  - name: строчка в конфиге /etc/shells для ограниченного shell-a пользователя ftpu01
+    lineinfile:
+      path: /etc/shells
+      regexp: "^/bin/false"
+      line: "/bin/false"
+      state: present
+  - name: убедиться что установлен vsftpd
+    apt:
+      name: vsftpd
+      update_cache: no
+      state: present
+  - name: добавить пользователя ftpu01
+    user:
+      name: ftpu01
+      group: ftp
+      shell: /bin/false
+      home: /srv/ftp
+      password: "YZjET9Jf/nniUoJxZ/Kxd/1uYn.r42S/"
+      state: present
+  - name: создаем каталог и меняем владельца /srv/ftp
+    file:
+      path: /srv/ftp
+      state: directory
+      owner: root
+      group: root
+      mode: 0555
+      recurse: yes
+  - name: создаем каталог и меняем владельца /srv/ftp/output
+    file:
+      path: /srv/ftp/output
+      state: directory
+      owner: ftpu01
+      group: ftp
+      mode: 0770
+      recurse: yes
+  - name: Удаляем старый файл vsftpd.conf, чтобы создать новый.
+    file:
+      path: /etc/vsftpd.conf
+      state: absent
+  - name: Делаем новый файл vsftpd.conf
+    blockinfile:
+      path: /etc/vsftpd.conf
+      create: yes
+      marker: ""
+      block: |
+        listen=YES
+        anonymous_enable=NO
+        local_enable=YES
+        write_enable=YES
+        dirmessage_enable=YES
+        use_localtime=YES
+        xferlog_enable=YES
+        connect_from_port_20=YES
+        chroot_local_user=YES
+        allow_writeable_chroot=YES
+        write_enable=YES
+        secure_chroot_dir=/var/run/vsftpd/empty
+        pam_service_name=vsftpd
+        rsa_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+  - name: назначаем разрешения для /etc/vsftpd.conf
+    file:
+      path: /etc/vsftpd.conf
+      owner: root
+      group: root
+  - name: restart vsftpd
+    service:
+      name: vsftpd
+      state: restarted

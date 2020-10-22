@@ -1,0 +1,6 @@
+---
+plugin: gcp_compute
+projects:
+  - crafty-academy-289910
+auth_kind: serviceaccount
+service_account_file: ~/.ssh/gcp.json

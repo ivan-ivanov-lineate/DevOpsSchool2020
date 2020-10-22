@@ -1,0 +1,15 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: install apache2
+      apt: name=apache2 update_cache=yes state=latest
+
+    - name: install vim
+      apt: name=vim update_cache=yes state=latest
+
+    - name: install nano
+      apt: name=nano update_cache=yes state=latest
+
+    - name: install vsftpd
+      apt: name=vsftpd update_cache=yes state=latest

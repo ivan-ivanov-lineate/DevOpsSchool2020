@@ -1,0 +1,109 @@
+---
+- hosts: [test]
+  vars:
+    ssh_pubkey_student: "{{ lookup('file', '~/.ssh/google_compute_engine.pub') }}"
+    pass_hash_student: $1$7Q5ylRjB$8qx1oKobnhwSjmQqcyVEV1
+    pass_hash_an0nym0us: $1$k1yO.Kw5$FXBKQYPaF89G2bWS.X9Xn.
+
+  tasks:
+    - name: Ensure group "students" exists
+      group:
+        name: students
+        state: present
+        
+    - name: Allow "student" group to have passwordless sudo
+      blockinfile:
+        dest: /etc/sudoers.d/students
+        create: yes
+        block: |
+          %students ALL=(ALL)  NOPASSWD: ALL
+
+    - name: Add the user "student" with a specific uid, password and group
+      user:
+        name: student
+        uid: 2001
+        group: students
+        password: "{{pass_hash_student}}"
+
+    - name: Add new SSH Public Key for "student"
+      authorized_key: user=student key="{{ssh_pubkey_student}}" state=present
+      register: add_key_result
+      ignore_errors: True
+
+
+    - name: Line in cfg /etc/shells for shell block user "an0nym0us"
+      lineinfile:
+        path: /etc/shells
+        regexp: "^/bin/false"
+        line: "/bin/false"
+        state: present
+
+    - name: Install vsftpd
+      apt:
+        name: vsftpd
+        update_cache: no
+        state: present
+
+    - name: Add user "an0nym0us" to ftp
+      user:
+        name: an0nym0us
+        group: ftp
+        shell: /bin/false
+        home: /srv/ftp
+        password: "{{pass_hash_an0nym0us}}"
+        state: present
+
+    - name: Create directory and change owner /srv/ftp
+      file:
+        path: /srv/ftp
+        state: directory
+        owner: root
+        group: root
+        mode: 0555
+        recurse: yes
+
+    - name: Create directory and change owner /srv/ftp/output
+      file:
+        path: /srv/ftp/output
+        state: directory
+        owner: an0nym0us
+        group: ftp
+        mode: 0770
+        recurse: yes
+
+    - name: Delete old cfg
+      file:
+        path: /etc/vsftpd.conf
+        state: absent
+
+    - name: Create vsftpd.conf
+      blockinfile:
+        path: /etc/vsftpd.conf
+        create: yes
+        marker: ""
+        block: |
+          listen=YES
+          anonymous_enable=NO
+          local_enable=YES
+          write_enable=YES
+          dirmessage_enable=YES
+          use_localtime=YES
+          xferlog_enable=YES
+          connect_from_port_20=YES
+          chroot_local_user=YES
+          allow_writeable_chroot=YES
+          write_enable=YES
+          secure_chroot_dir=/var/run/vsftpd/empty
+          pam_service_name=vsftpd
+          rsa_cert_file=/etc/ssl/certs/ssl-cert-snakeoil.pem
+
+    - name: Change owner /etc/vsftpd.conf
+      file:
+        path: /etc/vsftpd.conf
+        owner: root
+        group: root
+
+    - name: restart vsftpd
+      service:
+        name: vsftpd
+        state: restarted
