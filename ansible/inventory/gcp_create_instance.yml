@@ -1,6 +1,6 @@
 - name: Create an instance
   hosts: localhost
-  gather_facts: no
+  gather_facts: true
   vars:
       gcp_project: crafty-academy-289910
       gcp_cred_kind: serviceaccount
@@ -126,6 +126,9 @@
   connection: ssh
   become: True
   roles:
+#     - role: '~/git/DevOpsSchool2020/ansible/inventory/roles/common'
      - role: 'common'
+     - role: 'ftp'
+     - role: 'nginx'
 #    - base_configuration
 #    - production_server
