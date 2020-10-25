@@ -1,0 +1,66 @@
+#---
+#- hosts: all
+#  become: true
+#  vars:
+#    ssh_pubkey_student: "{{ lookup('file', '~/.ssh/google_compute_engine.pub') }}"
+#    pass_hash_student: $1$7Q5ylRjB$8qx1oKobnhwSjmQqcyVEV1
+#    pass_hash_an0nym0us: $1$k1yO.Kw5$FXBKQYPaF89G2bWS.X9Xn.
+
+#  tasks:
+    - name: Ensure group "students" exists
+      group:
+        name: students
+        state: present
+        
+    - name: Allow "student" group to have passwordless sudo
+      blockinfile:
+        dest: /etc/sudoers.d/students
+        create: yes
+        block: |
+          %students ALL=(ALL)  NOPASSWD: ALL
+
+    - name: Add the user "student" with a specific uid, password and group
+      user:
+        name: student
+        uid: 2001
+        group: students
+        password: "$1$7Q5ylRjB$8qx1oKobnhwSjmQqcyVEV1"
+        #       password: "{{pass_hash_student}}"
+
+    - name: Add new SSH Public Key for "student"
+      authorized_key:
+        user: student
+        key: "{{ item }}"
+        #        key: "{{ssh_pubkey_student}}"
+        state: present
+        exclusive: True
+      ignore_errors: True
+      with_file:
+      - "~/.ssh/google_compute_engine.pub"
+
+    - name: Create directories and change owner /home/student
+      file:
+        path: /home/student/1/2/3/4/5
+        state: directory
+        owner: root
+        group: root
+        mode: 0755
+        recurse: yes
+
+    - name: install vim
+      apt: name=vim update_cache=yes state=latest
+
+    - name: install nano
+      apt: name=nano update_cache=yes state=latest
+
+    - name: install mc
+      apt: name=mc update_cache=yes state=latest
+
+    - name: OS
+      debug: msg={{ ansible_distribution }}
+
+    - name: CPU
+      debug: msg={{ ansible_processor, ansible_processor_cores, ansible_processor_count }}
+
+    - name: NIC conf, ISP cloud name, HW
+      debug: msg={{ ansible_system_vendor, ansible_product_name, ansible_default_ipv4 }}

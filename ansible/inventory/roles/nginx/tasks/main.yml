@@ -1,0 +1,52 @@
+---
+- name: Install Nginx Web Server
+  apt:
+    name=nginx
+    state=latest
+  notify:
+    - nginx systemd
+
+- name: Create directories and change owner /var/www/test
+  file:
+    path: /var/www/test
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Create directories and change owner /var/www/test/html
+  file:
+    path: /var/www/test/html          
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Copy site config
+  copy:        
+    dest: /var/www/test/html/index.html
+    content:  |
+      <html>
+       <head>
+          <title>Welcome Dmitriy</title>
+       </head>
+       <body>
+          <h1>Thanks for your wisdom!</h1>
+       </body>
+      </html>
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add virtual domain in NGINX
+  template:
+    src=templates/nginx_vhosts.conf
+    dest=/etc/nginx/sites-enabled/test
+
+- name: Add virtual domain in NGINX
+  template:
+    src=/etc/nginx/sites-available/test
+    dest=/etc/nginx/sites-enabled/test
+    state=link
+  notify:
+    - nginx restart

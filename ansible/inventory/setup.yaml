@@ -1,0 +1,18 @@
+---
+- hosts: test
+  become: true
+
+  tasks:
+#    - name: Collect only facts returned by facter
+#      setup:
+#        gather_subset:
+#          - 'all'
+
+    - name: OS
+      debug: msg={{ ansible_distribution }}
+
+    - name: CPU
+      debug: msg={{ ansible_processor, ansible_processor_cores, ansible_processor_count }}
+
+    - name: NIC conf, ISP cloud name, HW
+      debug: msg={{ ansible_system_vendor, ansible_product_name, ipv4 }}
