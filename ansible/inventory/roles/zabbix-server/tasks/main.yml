@@ -1,0 +1,37 @@
+---
+- name: create zabbix system user
+  user:
+    name: zabbix-docker
+    comment: 'zabbix docker system user'
+    system: true
+    uid: '2002'
+  become: true
+
+- name: create /opt/zabbix-docker directory
+  file:
+    path: /opt/zabbix-docker
+    mode: 0700
+    owner: '2002'
+    state: directory
+  become: true
+
+- name: create zabbix docker server directory
+  file:
+    path: /opt/zabbix-docker/server
+    mode: 0700
+    owner: '2002'
+    state: directory
+  become: true
+
+- name: run zabbix server docker container
+  docker_container:
+    name: zabbix-appliance
+    image: zabbix/zabbix-appliance:latest
+    state: started
+    restart_policy: unless-stopped
+    ports:
+    - 10051:10051
+    - 80:80
+    volumes:
+    - /opt/zabbix-docker/server:/var/lib/zabbix/
+  become: true

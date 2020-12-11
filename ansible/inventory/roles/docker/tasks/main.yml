@@ -1,61 +1,26 @@
-#---
-#- hosts: all
-#  become: true
-#  vars:
-#    create_containers: 4
-#    default_container_name: docker
-#    default_container_image: ubuntu
-#    default_container_command: sleep 1d
-​
-#  tasks:
-    - name: Install aptitude using apt
-      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
-​
-    - name: Install required system packages
-      apt: name={{ item }} state=latest update_cache=yes
-      loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools', 'python-setuptools']
-​
-    - name: Add Docker GPG apt Key
-      apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-​
-    - name: Add Docker Repository
-      apt_repository:
-#        repo: deb https://download.docker.com/linux/ubuntu xenial stable
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable
-        state: present
-​
-    - name: Update apt and install docker-ce
-#      apt: update_cache=yes name=docker.io state=latest
-​      apt: update_cache=yes name={{ item }} state=latest
-      loop: [ 'docker-ce', 'docker-ce-cli', 'containerd.io' ]
+---
+- name: Install required system packages
+  apt: name={{ item }} state=latest update_cache=yes
+  loop: ['apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools', 'python-setuptools']
 
-    - name: Install docker-compose
-      pip:
-        name: docker-compose
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
 
-    - name: Install Docker Module for Python
-      pip:
-        name: docker
-​
-    - name: Pull default Docker image
-      docker_image:
-#        name: "{{ default_container_image }}"
-        name: ubuntu
-        source: pull
-​
-    - name: pull an image
-      docker_image:
-        name: pacur/centos-7
-        source: pull
-​
-    - name: Create default containers
-      docker_container:
-#        name: "{{ default_container_name }}{{ item }}"
-         name: "docker {{ item }}"
-#        image: "{{ default_container_image }}"
-         image: "ubuntu"
-#        command: "{{ default_container_command }}"
-        state: present
-      with_sequence: count=3
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ansible_distribution_release}} stable
+    state: present
+
+- name: Update apt and install docker-ce
+  apt: update_cache=yes name={{ item }} state=latest
+  loop: ['docker-ce', 'docker-ce-cli', 'containerd.io']
+
+- name: Install docker-compose
+  pip:
+    name: docker-compose
+
+- name: Install Docker Module for Python
+  pip:
+    name: docker

@@ -1,0 +1,13 @@
+---
+#- name: Go to the folder and execute command
+#  command: chdir=/tmp
+
+- name: clone a private repository
+  git:
+    repo: 'https://github.com/deviantony/docker-elk.git'
+    dest: /opt/docker-elk
+
+- name: run elk docker-compose.yml
+#  docker_compose:
+  docker_service:
+    project_src: /opt/docker-elk

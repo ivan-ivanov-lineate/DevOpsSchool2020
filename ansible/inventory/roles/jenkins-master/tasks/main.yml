@@ -1,0 +1,43 @@
+---
+- name: Ensure group "jenkins" exists
+  group:
+    name: jenkins
+    state: present
+
+- name: Allow "jenkins" group to have passwordless sudo
+  blockinfile:
+    dest: /etc/sudoers.d/jenkins
+    create: yes
+    block: |
+      %jenkins ALL=(ALL)  NOPASSWD: ALL
+
+- name: Add the user 'jenkins' with a specific uid, a primary group of 'admin','docker' and generate ssh-key 'jenkins-master'
+  user:
+    name: jenkins
+    uid: '2002'
+    groups: admin,docker
+    append: yes
+    home: /home/jenkins_home
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/jenkins-master
+
+- name: Generate ssh-key 'jenkins' for user 'jenkins'
+  user:
+    name: jenkins
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/jenkins
+
+- name: run jenkins docker container
+  docker_container:
+    name: jenkins
+    image: jenkins/jenkins:lts
+    state: started
+    restart_policy: unless-stopped
+    ports:
+    - 50000:50000
+    - 8080:8080
+    volumes:
+    - jenkins-data:/var/jenkins_home
+  become: true

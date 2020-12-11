@@ -1,0 +1,29 @@
+---
+- name: Ensure group "jenkins" exists
+  group:
+    name: jenkins
+    state: present
+
+- name: Allow "jenkins" group to have passwordless sudo
+  blockinfile:
+    dest: /etc/sudoers.d/jenkins
+    create: yes
+    block: |
+      %jenkins ALL=(ALL)  NOPASSWD: ALL
+
+- name: Add the user 'jenkins' with a specific uid, a primary group of 'admin','docker' and generate ssh-key 'jenkins'
+  user:
+    name: jenkins
+    uid: '2002'
+    groups: admin,docker
+    append: yes
+    home: /home/jenkins_home
+    generate_ssh_key: yes
+    ssh_key_bits: 2048
+    ssh_key_file: .ssh/jenkins
+
+- name: install openjdk-8-jdk
+  apt: update_cache=yes name=openjdk-8-jdk state=latest
+
+- name: install maven
+  apt: update_cache=yes name=maven state=latest

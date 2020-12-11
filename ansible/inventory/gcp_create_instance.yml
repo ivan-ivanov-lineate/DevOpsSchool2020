@@ -9,9 +9,9 @@
       region: "europe-west3"
 
   tasks:
-   - name: create a first disk
+   - name: create a project disk
      gcp_compute_disk:
-         name: 'disk-test-1'
+         name: 'project-disk'
          size_gb: 10
          source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts'
          zone: "{{ zone }}"
@@ -21,11 +21,52 @@
          scopes:
            - https://www.googleapis.com/auth/compute
          state: present
-     register: disk1
+     register: projectdisk
 
-   - name: create a second disk
+   - name: create a project address
+     gcp_compute_address:
+         name: 'project-address'
+         region: "{{ region }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: projectaddress
+
+   - name: create a project instance
+     gcp_compute_instance:
+         state: present
+         name: project
+         machine_type: n1-standard-1
+         disks:
+           - auto_delete: true
+             boot: true
+             source: "{{ projectdisk }}"
+         network_interfaces:
+             - network: null # use default
+               access_configs:
+                 - name: 'External NAT'
+                   nat_ip: "{{ projectaddress }}"
+                   type: 'ONE_TO_ONE_NAT'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+     register: projectinstance
+
+   - name: Wait for SSH to come up {{ projectinstance.name }}
+     wait_for: host={{ projectaddress.address }} port=22 delay=10 timeout=60
+
+   - name: Add host to groupname {{ projectinstance.name }}
+     add_host: hostname={{ projectaddress.address }} groupname=project
+
+   - name: create a jenkins-master disk
      gcp_compute_disk:
-         name: 'disk-test-2'
+         name: 'jenkins-master-disk'
          size_gb: 10
          source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts'
          zone: "{{ zone }}"
@@ -35,12 +76,11 @@
          scopes:
            - https://www.googleapis.com/auth/compute
          state: present
-     register: disk2
+     register: jenkinsmasterdisk
 
-
-   - name: create a first address
+   - name: create a jenkins-master address
      gcp_compute_address:
-         name: 'address-test-1'
+         name: 'jenkins-master-address'
          region: "{{ region }}"
          project: "{{ gcp_project }}"
          auth_kind: "{{ gcp_cred_kind }}"
@@ -48,11 +88,54 @@
          scopes:
            - https://www.googleapis.com/auth/compute
          state: present
-     register: address1
+     register: jenkinsmasteraddress
 
-   - name: create a second address
+   - name: create a jenkins-master instance
+     gcp_compute_instance:
+         state: present
+         name: jenkins-master
+         machine_type: n1-standard-1
+         disks:
+           - auto_delete: true
+             boot: true
+             source: "{{ jenkinsmasterdisk }}"
+         network_interfaces:
+             - network: null # use default
+               access_configs:
+                 - name: 'External NAT'
+                   nat_ip: "{{ jenkinsmasteraddress }}"
+                   type: 'ONE_TO_ONE_NAT'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+     register: jenkinsmasterinstance
+
+   - name: Wait for SSH to come up {{ jenkinsmasterinstance.name }}
+     wait_for: host={{ jenkinsmasteraddress.address }} port=22 delay=10 timeout=60
+
+   - name: Add host to groupname {{ jenkinsmasterinstance.name }}
+     add_host: hostname={{ jenkinsmasteraddress.address }} groupname=jenkinsmaster
+
+   - name: create a jenkins-slave disk
+     gcp_compute_disk:
+         name: 'jenkins-slave-disk'
+         size_gb: 10
+         source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: jenkinsslavedisk
+
+   - name: create a jenkins-slave address
      gcp_compute_address:
-         name: 'address-test-2'
+         name: 'jenkins-slave-address'
          region: "{{ region }}"
          project: "{{ gcp_project }}"
          auth_kind: "{{ gcp_cred_kind }}"
@@ -60,23 +143,22 @@
          scopes:
            - https://www.googleapis.com/auth/compute
          state: present
-     register: address2
+     register: jenkinsslaveaddress
 
-
-   - name: create a first instance
+   - name: create a jenkins-slave instance
      gcp_compute_instance:
          state: present
-         name: test-1
+         name: jenkins-slave
          machine_type: n1-standard-1
          disks:
            - auto_delete: true
              boot: true
-             source: "{{ disk1 }}"
+             source: "{{ jenkinsslavedisk }}"
          network_interfaces:
              - network: null # use default
                access_configs:
                  - name: 'External NAT'
-                   nat_ip: "{{ address1 }}"
+                   nat_ip: "{{ jenkinsslaveaddress }}"
                    type: 'ONE_TO_ONE_NAT'
          zone: "{{ zone }}"
          project: "{{ gcp_project }}"
@@ -84,22 +166,54 @@
          service_account_file: "{{ gcp_cred_file }}"
          scopes:
            - https://www.googleapis.com/auth/compute
-     register: instance1
+     register: jenkinsslaveinstance
 
-   - name: create a second instance
+   - name: Wait for SSH to come up {{ jenkinsslaveinstance.name }}
+     wait_for: host={{ jenkinsslaveaddress.address }} port=22 delay=10 timeout=60
+
+   - name: Add host to groupname {{ jenkinsslaveinstance.name }}
+     add_host: hostname={{ jenkinsslaveaddress.address }} groupname=jenkinsslave
+
+   - name: create a zabbix-server disk
+     gcp_compute_disk:
+         name: 'zabbix-server-disk'
+         size_gb: 10
+         source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: zabbixserverdisk
+
+   - name: create a zabbix-server address
+     gcp_compute_address:
+         name: 'zabbix-server-address'
+         region: "{{ region }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: zabbixserveraddress
+
+   - name: create a zabbix-server instance
      gcp_compute_instance:
          state: present
-         name: test-2
+         name: zabbix-server
          machine_type: n1-standard-1
          disks:
            - auto_delete: true
              boot: true
-             source: "{{ disk2 }}"
+             source: "{{ zabbixserverdisk }}"
          network_interfaces:
              - network: null # use default
                access_configs:
                  - name: 'External NAT'
-                   nat_ip: "{{ address2 }}"
+                   nat_ip: "{{ zabbixserveraddress }}"
                    type: 'ONE_TO_ONE_NAT'
          zone: "{{ zone }}"
          project: "{{ gcp_project }}"
@@ -107,28 +221,119 @@
          service_account_file: "{{ gcp_cred_file }}"
          scopes:
            - https://www.googleapis.com/auth/compute
-     register: instance2
+     register: zabbixserverinstance
 
-   - name: Wait for SSH to come up {{ instance1.name }}
-     wait_for: host={{ address1.address }} port=22 delay=10 timeout=60
+   - name: Wait for SSH to come up {{ zabbixserverinstance.name }}
+     wait_for: host={{ zabbixserveraddress.address }} port=22 delay=10 timeout=60
 
-   - name: Wait for SSH to come up {{ instance2.name }}
-     wait_for: host={{ address2.address }} port=22 delay=10 timeout=60
+   - name: Add host to groupname {{ zabbixserverinstance.name }}
+     add_host: hostname={{ zabbixserveraddress.address }} groupname=zabbixserver
 
-   - name: Add host to groupname {{ instance1.name }}
-     add_host: hostname={{ address1.address }} groupname=test
+   - name: create a elk disk
+     gcp_compute_disk:
+         name: 'elk-disk'
+         size_gb: 10
+         source_image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2004-lts'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: elkdisk
 
-   - name: Add host to groupname {{ instance2.name }}
-     add_host: hostname={{ address2.address }} groupname=test
+   - name: create a elk address
+     gcp_compute_address:
+         name: 'elk-address'
+         region: "{{ region }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+         state: present
+     register: elkaddress
 
-- name: Manage new instances
-  hosts: test
+   - name: create a elk instance
+     gcp_compute_instance:
+         state: present
+         name: elk
+         machine_type: n1-standard-1
+         disks:
+           - auto_delete: true
+             boot: true
+             source: "{{ elkdisk }}"
+         network_interfaces:
+             - network: null # use default
+               access_configs:
+                 - name: 'External NAT'
+                   nat_ip: "{{ elkaddress }}"
+                   type: 'ONE_TO_ONE_NAT'
+         zone: "{{ zone }}"
+         project: "{{ gcp_project }}"
+         auth_kind: "{{ gcp_cred_kind }}"
+         service_account_file: "{{ gcp_cred_file }}"
+         scopes:
+           - https://www.googleapis.com/auth/compute
+     register: elkinstance
+
+   - name: Wait for SSH to come up {{ elkinstance.name }}
+     wait_for: host={{ elkaddress.address }} port=22 delay=10 timeout=60
+
+   - name: Add host to groupname {{ elkinstance.name }}
+     add_host: hostname={{ elkaddress.address }} groupname=elk
+
+- name: Manage project instances
+  hosts: project
   connection: ssh
   become: True
   roles:
-#     - role: '~/git/DevOpsSchool2020/ansible/inventory/roles/common'
      - role: 'common'
-     - role: 'ftp'
-     - role: 'nginx'
-#    - base_configuration
-#    - production_server
+     - role: 'docker'
+     - role: 'filebeat'
+     - role: 'zabbix-agent'
+
+- name: Manage jenkins-master instances
+  hosts: jenkinsmaster
+  connection: ssh
+  become: True
+  roles:
+     - role: 'common'
+     - role: 'docker'
+     - role: 'filebeat'
+     - role: 'jenkins-master'
+     - role: 'zabbix-agent'
+
+- name: Manage jenkins-slave instances
+  hosts: jenkinsslave
+  connection: ssh
+  become: True
+  roles:
+     - role: 'common'
+     - role: 'docker'
+     - role: 'filebeat'
+     - role: 'jenkins-slave'
+     - role: 'zabbix-agent'
+
+- name: Manage zabbix-server instances
+  hosts: zabbixserver
+  connection: ssh
+  become: True
+  roles:
+     - role: 'common'
+     - role: 'docker'
+     - role: 'filebeat'
+     - role: 'zabbix-agent'
+     - role: 'zabbix-server'
+
+- name: Manage elk instances
+  hosts: elk
+  connection: ssh
+  become: True
+  roles:
+     - role: 'common'
+     - role: 'docker'
+     - role: 'elk'
+     - role: 'filebeat'
+     - role: 'zabbix-agent'
